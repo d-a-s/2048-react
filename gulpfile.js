@@ -1,31 +1,33 @@
 var gulp = require('gulp');
-var sass = require('gulp-sass');
+var sass = require('gulp-dart-sass');
 var prefix = require('gulp-autoprefixer');
 var babel = require('gulp-babel');
 
 var styles = 'src/*.scss';
 var scripts = 'src/*.js';
 
-gulp.task('styles', function () {
+function stylesTask() {
   return gulp.src(styles)
     .pipe(sass())
     .pipe(prefix('last 2 versions', '> 1%', 'ie 8', 'ie 7'))
     .pipe(gulp.dest('built'));
-});
+}
 
-gulp.task('jsx', function () {
+function jsxTask() {
   return gulp.src(scripts)
     .pipe(babel({
       presets: ['es2015', 'react']
     }))
     .pipe(gulp.dest('built'));
-});
+}
 
-gulp.task('watch', function () {
-  gulp.watch(styles, ['styles']);
-  gulp.watch(scripts, ['jsx']);
-});
+function watchTask() {
+  gulp.watch(styles, stylesTask);
+  gulp.watch(scripts, jsxTask);
+}
 
-gulp.task('default', ['watch', 'styles', 'jsx']);
-
-gulp.task('build', ['styles', 'jsx']);
+gulp.task('styles', stylesTask);
+gulp.task('jsx', jsxTask);
+gulp.task('watch', watchTask);
+gulp.task('default', gulp.series(gulp.parallel('styles', 'jsx'), 'watch'));
+gulp.task('build', gulp.parallel('styles', 'jsx'));
