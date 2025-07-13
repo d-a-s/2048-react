@@ -7,7 +7,7 @@ class BoardView extends React.Component {
       redoStack: [],
       hint: '',
       auto: false,
-      autoDelay: 200
+      autoDelay: 150
     };
     this.autoTimeout = null;
     // --- SmartAI Web Worker integration ---
@@ -136,10 +136,10 @@ class BoardView extends React.Component {
   }
   toggleAuto() {
     if (this.state.auto) {
-      this.setState({auto: false});
+      this.setState({ auto: false });
       if (this.autoTimeout) clearTimeout(this.autoTimeout);
     } else {
-      this.setState({auto: true}, () => this.autoStep());
+      this.setState({ auto: true }, () => this.autoStep());
     }
   }
   getHintDirection() {
@@ -160,16 +160,16 @@ class BoardView extends React.Component {
       case 3: dirText = 'Down'; break;
       default: dirText = 'No moves available';
     }
-    this.setState({hint: dirText});
+    this.setState({ hint: dirText });
   }
   async autoStep() {
     if (!this.state.auto || this.state.board.hasLost()) {
-      this.setState({auto: false});
+      this.setState({ auto: false });
       return;
     }
     const dir = await this.getHintDirection();
     if (dir === null) {
-      this.setState({auto: false});
+      this.setState({ auto: false });
       return;
     }
     const prevState = this.saveState(this.state.board);
@@ -186,7 +186,7 @@ class BoardView extends React.Component {
   handleDelayChange(e) {
     let val = parseInt(e.target.value, 10);
     if (isNaN(val) || val < 1) val = 1;
-    this.setState({autoDelay: val});
+    this.setState({ autoDelay: val });
   }
   componentDidMount() {
     window.addEventListener('keydown', this.handleKeyDown.bind(this));
@@ -200,7 +200,7 @@ class BoardView extends React.Component {
     var cells = this.state.board.cells.map((row, rowIndex) => {
       return (
         <div key={rowIndex}>
-          { row.map((_, columnIndex) => <Cell key={rowIndex * Board.size + columnIndex} />) }
+          {row.map((_, columnIndex) => <Cell key={rowIndex * Board.size + columnIndex} />)}
         </div>
       );
     });
@@ -214,13 +214,28 @@ class BoardView extends React.Component {
           {tiles}
           <GameEndOverlay board={this.state.board} onRestart={this.restartGame.bind(this)} />
         </div>
-        <div style={{marginTop: '10px', textAlign: 'center'}}>
+        <div style={{ marginTop: '10px', textAlign: 'center' }}>
           <button onClick={this.handleUndo.bind(this)} disabled={this.state.undoStack.length === 0}>Undo (U)</button>
-          <button onClick={this.handleRedo.bind(this)} disabled={this.state.redoStack.length === 0} style={{marginLeft: '10px'}}>Redo (R)</button>
-          <button onClick={this.handleHint.bind(this)} style={{marginLeft: '10px'}}>Hint (h)</button>
-          <button onClick={this.toggleAuto.bind(this)} style={{marginLeft: '10px'}}>{this.state.auto ? 'Stop Auto (a)' : 'Auto (a)'}</button>
-          <span style={{marginLeft: '10px'}}>Delay (ms): <input type="number" min="1" value={this.state.autoDelay} onChange={this.handleDelayChange.bind(this)} style={{width: '60px'}} /></span>
-          {this.state.hint && <div style={{marginTop: '10px', fontWeight: 'bold'}}>Hint: {this.state.hint}</div>}
+          <button onClick={this.handleRedo.bind(this)} disabled={this.state.redoStack.length === 0} style={{ marginLeft: '10px' }}>Redo (R)</button>
+          <button onClick={this.handleHint.bind(this)} style={{ marginLeft: '10px' }}>Hint (h)</button>
+          <button onClick={this.toggleAuto.bind(this)} style={{ marginLeft: '10px' }}>{this.state.auto ? 'Stop Auto (a)' : 'Auto (a)'}</button>
+        </div>
+        <div style={{ marginTop: '10px', textAlign: 'center' }}>
+          <span style={{ marginLeft: '10px' }}>Auto delay: {
+            [1, 50, 150, 500, 1000].map(val => (
+              <label key={val} style={{ marginLeft: '8px' }}>
+                <input
+                  type="radio"
+                  name="autoDelay"
+                  value={val}
+                  checked={this.state.autoDelay === val}
+                  onChange={this.handleDelayChange}
+                />
+                {val}
+              </label>
+            ))
+          }</span>
+          {this.state.hint && <div style={{ marginTop: '10px', fontWeight: 'bold' }}>Hint: {this.state.hint}</div>}
         </div>
       </div>
     );
@@ -273,7 +288,7 @@ class TileView extends React.Component {
   }
 }
 
-var GameEndOverlay = ({board, onRestart}) => {
+var GameEndOverlay = ({ board, onRestart }) => {
   var contents = '';
   // Only show overlay if lost
   if (board.hasLost()) {

@@ -24,7 +24,7 @@ var BoardView = function (_React$Component) {
       redoStack: [],
       hint: '',
       auto: false,
-      autoDelay: 200
+      autoDelay: 150
     };
     _this.autoTimeout = null;
     // --- SmartAI Web Worker integration ---
@@ -281,6 +281,8 @@ var BoardView = function (_React$Component) {
   }, {
     key: 'render',
     value: function render() {
+      var _this7 = this;
+
       var cells = this.state.board.cells.map(function (row, rowIndex) {
         return React.createElement(
           'div',
@@ -327,12 +329,29 @@ var BoardView = function (_React$Component) {
             'button',
             { onClick: this.toggleAuto.bind(this), style: { marginLeft: '10px' } },
             this.state.auto ? 'Stop Auto (a)' : 'Auto (a)'
-          ),
+          )
+        ),
+        React.createElement(
+          'div',
+          { style: { marginTop: '10px', textAlign: 'center' } },
           React.createElement(
             'span',
             { style: { marginLeft: '10px' } },
-            'Delay (ms): ',
-            React.createElement('input', { type: 'number', min: '1', value: this.state.autoDelay, onChange: this.handleDelayChange.bind(this), style: { width: '60px' } })
+            'Auto delay: ',
+            [1, 50, 150, 500, 1000].map(function (val) {
+              return React.createElement(
+                'label',
+                { key: val, style: { marginLeft: '8px' } },
+                React.createElement('input', {
+                  type: 'radio',
+                  name: 'autoDelay',
+                  value: val,
+                  checked: _this7.state.autoDelay === val,
+                  onChange: _this7.handleDelayChange
+                }),
+                val
+              );
+            })
           ),
           this.state.hint && React.createElement(
             'div',
