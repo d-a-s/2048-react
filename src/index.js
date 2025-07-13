@@ -4,14 +4,39 @@ class BoardView extends React.Component {
     this.state = {
       board: new Board,
       undoStack: [],
-      redoStack: []
+      redoStack: [],
+      hint: '',
+      auto: false,
+      autoDelay: 200
     };
+    this.autoTimeout = null;
+    // --- SmartAI Web Worker integration ---
+    this.smartAIWorker = new window.Worker('src/smart-ai.js');
+    this.workerPending = null;
+    this.smartAIWorker.onmessage = (e) => {
+      if (this.workerPending) {
+        this.workerPending(e.data.move);
+        this.workerPending = null;
+      }
+    };
+    this.smartAIWorker.onerror = (e) => {
+      console.error('SmartAI Worker error:', e);
+      if (this.workerPending) {
+        this.workerPending(null);
+        this.workerPending = null;
+      }
+    };
+    // Bind handleDelayChange for React 15 compatibility
+    this.handleDelayChange = this.handleDelayChange.bind(this);
   }
   restartGame() {
+    if (this.autoTimeout) clearTimeout(this.autoTimeout);
     this.setState({
       board: new Board,
       undoStack: [],
-      redoStack: []
+      redoStack: [],
+      hint: '',
+      auto: false
     });
   }
   saveState(board) {
@@ -46,12 +71,18 @@ class BoardView extends React.Component {
       this.setState(state => ({
         board: newBoard,
         undoStack: [...state.undoStack, prevState],
-        redoStack: []
+        redoStack: [],
+        hint: '',
+        auto: false
       }));
     } else if (event.key === 'u' || event.key === 'U') {
       this.handleUndo();
     } else if (event.key === 'r' || event.key === 'R') {
       this.handleRedo();
+    } else if (event.key === 'h' || event.key === 'H') {
+      this.handleHint();
+    } else if (event.key === 'a' || event.key === 'A') {
+      this.toggleAuto();
     }
   }
   handleUndo() {
@@ -106,15 +137,73 @@ class BoardView extends React.Component {
       this.setState(state => ({
         board: newBoard,
         undoStack: [...state.undoStack, prevState],
-        redoStack: []
+        redoStack: [],
+        hint: '',
+        auto: false
       }));
     }
+  }
+  toggleAuto() {
+    if (this.state.auto) {
+      this.setState({auto: false});
+      if (this.autoTimeout) clearTimeout(this.autoTimeout);
+    } else {
+      this.setState({auto: true}, () => this.autoStep());
+    }
+  }
+  getHintDirection() {
+    // Use SmartAI Web Worker for hint direction
+    return new Promise((resolve) => {
+      this.workerPending = resolve;
+      const boardValues = this.state.board.cells.map(row => row.map(cell => cell.value));
+      this.smartAIWorker.postMessage({ board: boardValues, size: Board.size });
+    });
+  }
+  async handleHint() {
+    const dir = await this.getHintDirection();
+    let dirText = '';
+    switch (dir) {
+      case 0: dirText = 'Left'; break;
+      case 1: dirText = 'Up'; break;
+      case 2: dirText = 'Right'; break;
+      case 3: dirText = 'Down'; break;
+      default: dirText = 'No moves available';
+    }
+    this.setState({hint: dirText});
+  }
+  async autoStep() {
+    if (!this.state.auto || this.state.board.hasWon() || this.state.board.hasLost()) {
+      this.setState({auto: false});
+      return;
+    }
+    const dir = await this.getHintDirection();
+    if (dir === null) {
+      this.setState({auto: false});
+      return;
+    }
+    const prevState = this.saveState(this.state.board);
+    const newBoard = this.state.board.move(dir);
+    this.setState(state => ({
+      board: newBoard,
+      undoStack: [...state.undoStack, prevState],
+      redoStack: [],
+      hint: '',
+    }), () => {
+      this.autoTimeout = setTimeout(() => this.state.auto && this.autoStep(), this.state.autoDelay);
+    });
+  }
+  handleDelayChange(e) {
+    let val = parseInt(e.target.value, 10);
+    if (isNaN(val) || val < 1) val = 1;
+    this.setState({autoDelay: val});
   }
   componentDidMount() {
     window.addEventListener('keydown', this.handleKeyDown.bind(this));
   }
   componentWillUnmount() {
     window.removeEventListener('keydown', this.handleKeyDown.bind(this));
+    // Terminate worker
+    if (this.smartAIWorker) this.smartAIWorker.terminate();
   }
   render() {
     var cells = this.state.board.cells.map((row, rowIndex) => {
@@ -137,6 +226,10 @@ class BoardView extends React.Component {
         <div style={{marginTop: '10px', textAlign: 'center'}}>
           <button onClick={this.handleUndo.bind(this)} disabled={this.state.undoStack.length === 0}>Undo (U)</button>
           <button onClick={this.handleRedo.bind(this)} disabled={this.state.redoStack.length === 0} style={{marginLeft: '10px'}}>Redo (R)</button>
+          <button onClick={this.handleHint.bind(this)} style={{marginLeft: '10px'}}>Hint (h)</button>
+          <button onClick={this.toggleAuto.bind(this)} style={{marginLeft: '10px'}}>{this.state.auto ? 'Stop Auto (a)' : 'Auto (a)'}</button>
+          <span style={{marginLeft: '10px'}}>Delay (ms): <input type="number" min="1" value={this.state.autoDelay} onChange={this.handleDelayChange.bind(this)} style={{width: '60px'}} /></span>
+          {this.state.hint && <div style={{marginTop: '10px', fontWeight: 'bold'}}>Hint: {this.state.hint}</div>}
         </div>
       </div>
     );

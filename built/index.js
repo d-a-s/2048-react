@@ -21,18 +21,43 @@ var BoardView = function (_React$Component) {
     _this.state = {
       board: new Board(),
       undoStack: [],
-      redoStack: []
+      redoStack: [],
+      hint: '',
+      auto: false,
+      autoDelay: 200
     };
+    _this.autoTimeout = null;
+    // --- SmartAI Web Worker integration ---
+    _this.smartAIWorker = new window.Worker('src/smart-ai.js');
+    _this.workerPending = null;
+    _this.smartAIWorker.onmessage = function (e) {
+      if (_this.workerPending) {
+        _this.workerPending(e.data.move);
+        _this.workerPending = null;
+      }
+    };
+    _this.smartAIWorker.onerror = function (e) {
+      console.error('SmartAI Worker error:', e);
+      if (_this.workerPending) {
+        _this.workerPending(null);
+        _this.workerPending = null;
+      }
+    };
+    // Bind handleDelayChange for React 15 compatibility
+    _this.handleDelayChange = _this.handleDelayChange.bind(_this);
     return _this;
   }
 
   _createClass(BoardView, [{
     key: 'restartGame',
     value: function restartGame() {
+      if (this.autoTimeout) clearTimeout(this.autoTimeout);
       this.setState({
         board: new Board(),
         undoStack: [],
-        redoStack: []
+        redoStack: [],
+        hint: '',
+        auto: false
       });
     }
   }, {
@@ -74,13 +99,19 @@ var BoardView = function (_React$Component) {
           return {
             board: newBoard,
             undoStack: [].concat(_toConsumableArray(state.undoStack), [prevState]),
-            redoStack: []
+            redoStack: [],
+            hint: '',
+            auto: false
           };
         });
       } else if (event.key === 'u' || event.key === 'U') {
         this.handleUndo();
       } else if (event.key === 'r' || event.key === 'R') {
         this.handleRedo();
+      } else if (event.key === 'h' || event.key === 'H') {
+        this.handleHint();
+      } else if (event.key === 'a' || event.key === 'A') {
+        this.toggleAuto();
       }
     }
   }, {
@@ -152,10 +183,97 @@ var BoardView = function (_React$Component) {
           return {
             board: newBoard,
             undoStack: [].concat(_toConsumableArray(state.undoStack), [prevState]),
-            redoStack: []
+            redoStack: [],
+            hint: '',
+            auto: false
           };
         });
       }
+    }
+  }, {
+    key: 'toggleAuto',
+    value: function toggleAuto() {
+      var _this4 = this;
+
+      if (this.state.auto) {
+        this.setState({ auto: false });
+        if (this.autoTimeout) clearTimeout(this.autoTimeout);
+      } else {
+        this.setState({ auto: true }, function () {
+          return _this4.autoStep();
+        });
+      }
+    }
+  }, {
+    key: 'getHintDirection',
+    value: function getHintDirection() {
+      var _this5 = this;
+
+      // Use SmartAI Web Worker for hint direction
+      return new Promise(function (resolve) {
+        _this5.workerPending = resolve;
+        var boardValues = _this5.state.board.cells.map(function (row) {
+          return row.map(function (cell) {
+            return cell.value;
+          });
+        });
+        _this5.smartAIWorker.postMessage({ board: boardValues, size: Board.size });
+      });
+    }
+  }, {
+    key: 'handleHint',
+    value: async function handleHint() {
+      var dir = await this.getHintDirection();
+      var dirText = '';
+      switch (dir) {
+        case 0:
+          dirText = 'Left';break;
+        case 1:
+          dirText = 'Up';break;
+        case 2:
+          dirText = 'Right';break;
+        case 3:
+          dirText = 'Down';break;
+        default:
+          dirText = 'No moves available';
+      }
+      this.setState({ hint: dirText });
+    }
+  }, {
+    key: 'autoStep',
+    value: async function autoStep() {
+      var _this6 = this;
+
+      if (!this.state.auto || this.state.board.hasWon() || this.state.board.hasLost()) {
+        this.setState({ auto: false });
+        return;
+      }
+      var dir = await this.getHintDirection();
+      if (dir === null) {
+        this.setState({ auto: false });
+        return;
+      }
+      var prevState = this.saveState(this.state.board);
+      var newBoard = this.state.board.move(dir);
+      this.setState(function (state) {
+        return {
+          board: newBoard,
+          undoStack: [].concat(_toConsumableArray(state.undoStack), [prevState]),
+          redoStack: [],
+          hint: ''
+        };
+      }, function () {
+        _this6.autoTimeout = setTimeout(function () {
+          return _this6.state.auto && _this6.autoStep();
+        }, _this6.state.autoDelay);
+      });
+    }
+  }, {
+    key: 'handleDelayChange',
+    value: function handleDelayChange(e) {
+      var val = parseInt(e.target.value, 10);
+      if (isNaN(val) || val < 1) val = 1;
+      this.setState({ autoDelay: val });
     }
   }, {
     key: 'componentDidMount',
@@ -166,6 +284,8 @@ var BoardView = function (_React$Component) {
     key: 'componentWillUnmount',
     value: function componentWillUnmount() {
       window.removeEventListener('keydown', this.handleKeyDown.bind(this));
+      // Terminate worker
+      if (this.smartAIWorker) this.smartAIWorker.terminate();
     }
   }, {
     key: 'render',
@@ -206,6 +326,28 @@ var BoardView = function (_React$Component) {
             'button',
             { onClick: this.handleRedo.bind(this), disabled: this.state.redoStack.length === 0, style: { marginLeft: '10px' } },
             'Redo (R)'
+          ),
+          React.createElement(
+            'button',
+            { onClick: this.handleHint.bind(this), style: { marginLeft: '10px' } },
+            'Hint (h)'
+          ),
+          React.createElement(
+            'button',
+            { onClick: this.toggleAuto.bind(this), style: { marginLeft: '10px' } },
+            this.state.auto ? 'Stop Auto (a)' : 'Auto (a)'
+          ),
+          React.createElement(
+            'span',
+            { style: { marginLeft: '10px' } },
+            'Delay (ms): ',
+            React.createElement('input', { type: 'number', min: '1', value: this.state.autoDelay, onChange: this.handleDelayChange.bind(this), style: { width: '60px' } })
+          ),
+          this.state.hint && React.createElement(
+            'div',
+            { style: { marginTop: '10px', fontWeight: 'bold' } },
+            'Hint: ',
+            this.state.hint
           )
         )
       );
