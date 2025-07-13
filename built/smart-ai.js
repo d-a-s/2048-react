@@ -13,10 +13,17 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
 function nextMove(grid, gridSize) {
   // Plan ahead a few moves in every direction and analyze the board state
   var originalQuality = gridQuality(grid, gridSize);
+  var free = getAvailableCells(grid, gridSize).length;
+  var moves = 3;
+  if (free < 7) moves = 5;
+  if (free < 4) moves = 10;
   var results = planAhead(grid, gridSize, 3, originalQuality);
   // Choose the best result
   var bestResult = chooseBestMove(results, originalQuality);
-
+  console.log({
+    free: free, moves: moves, originalQuality: originalQuality,
+    dir: bestResult.direction
+  });
   return bestResult.direction;
 }
 
@@ -430,7 +437,7 @@ if (typeof module !== 'undefined' && module.exports) {
     var move = move2;
     var aiToAppDir = [1, 2, 3, 0];
     move = aiToAppDir[move];
-    console.log(move2, move);
+    // console.log(move2, move);
     self.postMessage({ move: move });
   };
 }

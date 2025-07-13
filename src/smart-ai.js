@@ -9,10 +9,17 @@
 function nextMove(grid, gridSize) {
   // Plan ahead a few moves in every direction and analyze the board state
   const originalQuality = gridQuality(grid, gridSize);
+  const free = getAvailableCells(grid, gridSize).length;
+  let moves = 3;
+  if (free < 7) moves = 5;
+  if (free < 4) moves = 10;
   const results = planAhead(grid, gridSize, 3, originalQuality);
   // Choose the best result
   const bestResult = chooseBestMove(results, originalQuality);
-
+  console.log({
+    free, moves, originalQuality,
+    dir: bestResult.direction,
+  });
   return bestResult.direction;
 }
 
@@ -432,7 +439,7 @@ if (typeof module !== 'undefined' && module.exports) {
     let move = move2;
     const aiToAppDir = [1, 2, 3, 0];
     move = aiToAppDir[move];
-    console.log(move2, move);
+    // console.log(move2, move);
     self.postMessage({ move });
   };
 }

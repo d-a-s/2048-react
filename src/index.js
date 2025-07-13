@@ -60,9 +60,6 @@ class BoardView extends React.Component {
     return board;
   }
   handleKeyDown(event) {
-    if (this.state.board.hasWon()) {
-      return;
-    }
     if (event.keyCode >= 37 && event.keyCode <= 40) {
       event.preventDefault();
       var direction = event.keyCode - 37;
@@ -106,9 +103,6 @@ class BoardView extends React.Component {
     }));
   }
   handleTouchStart(event) {
-    if (this.state.board.hasWon()) {
-      return;
-    }
     if (event.touches.length != 1) {
       return;
     }
@@ -117,9 +111,6 @@ class BoardView extends React.Component {
     event.preventDefault();
   }
   handleTouchEnd(event) {
-    if (this.state.board.hasWon()) {
-      return;
-    }
     if (event.changedTouches.length != 1) {
       return;
     }
@@ -172,7 +163,7 @@ class BoardView extends React.Component {
     this.setState({hint: dirText});
   }
   async autoStep() {
-    if (!this.state.auto || this.state.board.hasWon() || this.state.board.hasLost()) {
+    if (!this.state.auto || this.state.board.hasLost()) {
       this.setState({auto: false});
       return;
     }
@@ -284,9 +275,8 @@ class TileView extends React.Component {
 
 var GameEndOverlay = ({board, onRestart}) => {
   var contents = '';
-  if (board.hasWon()) {
-    contents = 'Good Job!';
-  } else if (board.hasLost()) {
+  // Only show overlay if lost
+  if (board.hasLost()) {
     contents = 'Game Over';
   }
   if (!contents) {

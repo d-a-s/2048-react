@@ -87,9 +87,6 @@ var BoardView = function (_React$Component) {
   }, {
     key: 'handleKeyDown',
     value: function handleKeyDown(event) {
-      if (this.state.board.hasWon()) {
-        return;
-      }
       if (event.keyCode >= 37 && event.keyCode <= 40) {
         event.preventDefault();
         var direction = event.keyCode - 37;
@@ -149,9 +146,6 @@ var BoardView = function (_React$Component) {
   }, {
     key: 'handleTouchStart',
     value: function handleTouchStart(event) {
-      if (this.state.board.hasWon()) {
-        return;
-      }
       if (event.touches.length != 1) {
         return;
       }
@@ -162,9 +156,6 @@ var BoardView = function (_React$Component) {
   }, {
     key: 'handleTouchEnd',
     value: function handleTouchEnd(event) {
-      if (this.state.board.hasWon()) {
-        return;
-      }
       if (event.changedTouches.length != 1) {
         return;
       }
@@ -244,7 +235,7 @@ var BoardView = function (_React$Component) {
     value: async function autoStep() {
       var _this6 = this;
 
-      if (!this.state.auto || this.state.board.hasWon() || this.state.board.hasLost()) {
+      if (!this.state.auto || this.state.board.hasLost()) {
         this.setState({ auto: false });
         return;
       }
@@ -446,9 +437,8 @@ var GameEndOverlay = function GameEndOverlay(_ref) {
       onRestart = _ref.onRestart;
 
   var contents = '';
-  if (board.hasWon()) {
-    contents = 'Good Job!';
-  } else if (board.hasLost()) {
+  // Only show overlay if lost
+  if (board.hasLost()) {
     contents = 'Game Over';
   }
   if (!contents) {
