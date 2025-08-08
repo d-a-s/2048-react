@@ -1,5 +1,7 @@
 'use strict';
 
+var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; }();
+
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
 function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
@@ -9,6 +11,8 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var delays = [1, 50, 150, 250, 500, 1000];
 
 var BoardView = function (_React$Component) {
   _inherits(BoardView, _React$Component);
@@ -91,16 +95,23 @@ var BoardView = function (_React$Component) {
         event.preventDefault();
         var direction = event.keyCode - 37;
         var prevState = this.saveState(this.state.board);
-        var newBoard = this.state.board.move(direction);
-        this.setState(function (state) {
-          return {
-            board: newBoard,
-            undoStack: [].concat(_toConsumableArray(state.undoStack), [prevState]),
-            redoStack: [],
-            hint: '',
-            auto: false
-          };
-        });
+
+        var _state$board$move = this.state.board.move(direction, 1),
+            _state$board$move2 = _slicedToArray(_state$board$move, 2),
+            newBoard = _state$board$move2[0],
+            change = _state$board$move2[1];
+
+        if (change) {
+          this.setState(function (state) {
+            return {
+              board: newBoard,
+              undoStack: [].concat(_toConsumableArray(state.undoStack), [prevState]),
+              redoStack: [],
+              hint: '',
+              auto: false
+            };
+          });
+        }
       } else if (event.key === 'u' || event.key === 'U') {
         this.handleUndo();
       } else if (event.key === 'r' || event.key === 'R') {
@@ -109,6 +120,10 @@ var BoardView = function (_React$Component) {
         this.handleHint();
       } else if (event.key === 'a' || event.key === 'A') {
         this.toggleAuto();
+      } else if (event.key === 'N') {
+        this.restartGame();
+      } else if (/\d/.test(event.key) && delays[event.key - 1]) {
+        this.setState({ autoDelay: delays[event.key - 1] });
       }
     }
   }, {
@@ -169,16 +184,23 @@ var BoardView = function (_React$Component) {
       }
       if (direction != -1) {
         var prevState = this.saveState(this.state.board);
-        var newBoard = this.state.board.move(direction);
-        this.setState(function (state) {
-          return {
-            board: newBoard,
-            undoStack: [].concat(_toConsumableArray(state.undoStack), [prevState]),
-            redoStack: [],
-            hint: '',
-            auto: false
-          };
-        });
+
+        var _state$board$move3 = this.state.board.move(direction, 1),
+            _state$board$move4 = _slicedToArray(_state$board$move3, 2),
+            newBoard = _state$board$move4[0],
+            change = _state$board$move4[1];
+
+        if (change) {
+          this.setState(function (state) {
+            return {
+              board: newBoard,
+              undoStack: [].concat(_toConsumableArray(state.undoStack), [prevState]),
+              redoStack: [],
+              hint: '',
+              auto: false
+            };
+          });
+        }
       }
     }
   }, {
@@ -338,7 +360,7 @@ var BoardView = function (_React$Component) {
             'span',
             { style: { marginLeft: '10px' } },
             'Auto delay: ',
-            [1, 50, 150, 500, 1000].map(function (val) {
+            delays.map(function (val) {
               return React.createElement(
                 'label',
                 { key: val, style: { marginLeft: '8px' } },

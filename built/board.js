@@ -132,7 +132,7 @@ Board.prototype.addRandomTile = function () {
   this.cells[cell.r][cell.c] = this.addTile(newValue);
 };
 
-Board.prototype.move = function (direction) {
+Board.prototype.move = function (direction, retChange) {
   // 0 -> left, 1 -> up, 2 -> right, 3 -> down
   this.clearOldTiles();
   for (var i = 0; i < direction; ++i) {
@@ -146,6 +146,7 @@ Board.prototype.move = function (direction) {
     this.addRandomTile();
   }
   this.setPositions();
+  if (retChange) return [this, hasChanged];
   return this;
 };
 

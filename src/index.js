@@ -1,3 +1,4 @@
+const delays = [1, 50, 150, 250, 500, 1000];
 class BoardView extends React.Component {
   constructor(props) {
     super(props);
@@ -64,7 +65,8 @@ class BoardView extends React.Component {
       event.preventDefault();
       var direction = event.keyCode - 37;
       const prevState = this.saveState(this.state.board);
-      const newBoard = this.state.board.move(direction);
+      const [newBoard, change] = this.state.board.move(direction, 1);
+      if (change) {
       this.setState(state => ({
         board: newBoard,
         undoStack: [...state.undoStack, prevState],
@@ -72,6 +74,7 @@ class BoardView extends React.Component {
         hint: '',
         auto: false
       }));
+      }
     } else if (event.key === 'u' || event.key === 'U') {
       this.handleUndo();
     } else if (event.key === 'r' || event.key === 'R') {
@@ -80,6 +83,10 @@ class BoardView extends React.Component {
       this.handleHint();
     } else if (event.key === 'a' || event.key === 'A') {
       this.toggleAuto();
+    } else if (event.key === 'N') {
+      this.restartGame();
+    } else if (/\d/.test(event.key) && delays[event.key - 1]) {
+      this.setState({ autoDelay: delays[event.key - 1] });
     }
   }
   handleUndo() {
@@ -124,7 +131,8 @@ class BoardView extends React.Component {
     }
     if (direction != -1) {
       const prevState = this.saveState(this.state.board);
-      const newBoard = this.state.board.move(direction);
+      const [newBoard, change] = this.state.board.move(direction, 1);
+      if (change) {
       this.setState(state => ({
         board: newBoard,
         undoStack: [...state.undoStack, prevState],
@@ -132,6 +140,7 @@ class BoardView extends React.Component {
         hint: '',
         auto: false
       }));
+      }
     }
   }
   toggleAuto() {
@@ -222,7 +231,7 @@ class BoardView extends React.Component {
         </div>
         <div style={{ marginTop: '10px', textAlign: 'center' }}>
           <span style={{ marginLeft: '10px' }}>Auto delay: {
-            [1, 50, 150, 500, 1000].map(val => (
+            delays.map(val => (
               <label key={val} style={{ marginLeft: '8px' }}>
                 <input
                   type="radio"
