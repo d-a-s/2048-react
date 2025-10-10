@@ -1,5 +1,7 @@
 'use strict';
 
+var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
+
 var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; }();
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -13,6 +15,7 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
 var delays = [1, 50, 150, 250, 500, 1000];
+var stateKey = 'w2048-game-state';
 
 var BoardView = function (_React$Component) {
   _inherits(BoardView, _React$Component);
@@ -122,6 +125,10 @@ var BoardView = function (_React$Component) {
         this.toggleAuto();
       } else if (event.key === 'N') {
         this.restartGame();
+      } else if (/Y/.test(event.key)) {
+        this.saveToLocalStorage();
+      } else if (/P/.test(event.key)) {
+        this.restoreFromLocalStorage();
       } else if (/\d/.test(event.key) && delays[event.key - 1]) {
         this.setState({ autoDelay: delays[event.key - 1] });
       }
@@ -157,6 +164,36 @@ var BoardView = function (_React$Component) {
           redoStack: state.redoStack.slice(0, -1)
         };
       });
+    }
+  }, {
+    key: 'saveToLocalStorage',
+    value: function saveToLocalStorage() {
+      try {
+        var myState = JSON.stringify(this.state);
+        idbKeyval.set(stateKey, myState);
+        // localStorage.setItem(stateKey, myState);
+      } catch (e) {
+        console.error('Failed to save state:', e);
+      }
+    }
+  }, {
+    key: 'restoreFromLocalStorage',
+    value: function restoreFromLocalStorage() {
+      var _this4 = this;
+
+      try {
+        idbKeyval.get(stateKey).then(function (stateTxt) {
+          // const stateTxt = localStorage.getItem(stateKey)
+          var myState = JSON.parse(stateTxt);
+          if ((typeof myState === 'undefined' ? 'undefined' : _typeof(myState)) !== 'object') return;
+          myState.board = _this4.restoreState(myState.board);
+          _this4.setState(function (x) {
+            return Object.assign({}, x, myState);
+          });
+        });
+      } catch (e) {
+        console.error('Failed to restore state:', e);
+      }
     }
   }, {
     key: 'handleTouchStart',
@@ -206,31 +243,31 @@ var BoardView = function (_React$Component) {
   }, {
     key: 'toggleAuto',
     value: function toggleAuto() {
-      var _this4 = this;
+      var _this5 = this;
 
       if (this.state.auto) {
         this.setState({ auto: false });
         if (this.autoTimeout) clearTimeout(this.autoTimeout);
       } else {
         this.setState({ auto: true }, function () {
-          return _this4.autoStep();
+          return _this5.autoStep();
         });
       }
     }
   }, {
     key: 'getHintDirection',
     value: function getHintDirection() {
-      var _this5 = this;
+      var _this6 = this;
 
       // Use SmartAI Web Worker for hint direction
       return new Promise(function (resolve) {
-        _this5.workerPending = resolve;
-        var boardValues = _this5.state.board.cells.map(function (row) {
+        _this6.workerPending = resolve;
+        var boardValues = _this6.state.board.cells.map(function (row) {
           return row.map(function (cell) {
             return cell.value;
           });
         });
-        _this5.smartAIWorker.postMessage({ board: boardValues, size: Board.size });
+        _this6.smartAIWorker.postMessage({ board: boardValues, size: Board.size });
       });
     }
   }, {
@@ -255,7 +292,7 @@ var BoardView = function (_React$Component) {
   }, {
     key: 'autoStep',
     value: async function autoStep() {
-      var _this6 = this;
+      var _this7 = this;
 
       if (!this.state.auto || this.state.board.hasLost()) {
         this.setState({ auto: false });
@@ -276,9 +313,9 @@ var BoardView = function (_React$Component) {
           hint: ''
         };
       }, function () {
-        _this6.autoTimeout = setTimeout(function () {
-          return _this6.state.auto && _this6.autoStep();
-        }, _this6.state.autoDelay);
+        _this7.autoTimeout = setTimeout(function () {
+          return _this7.state.auto && _this7.autoStep();
+        }, _this7.state.autoDelay);
       });
     }
   }, {
@@ -303,7 +340,7 @@ var BoardView = function (_React$Component) {
   }, {
     key: 'render',
     value: function render() {
-      var _this7 = this;
+      var _this8 = this;
 
       var cells = this.state.board.cells.map(function (row, rowIndex) {
         return React.createElement(
@@ -368,8 +405,8 @@ var BoardView = function (_React$Component) {
                   type: 'radio',
                   name: 'autoDelay',
                   value: val,
-                  checked: _this7.state.autoDelay === val,
-                  onChange: _this7.handleDelayChange
+                  checked: _this8.state.autoDelay === val,
+                  onChange: _this8.handleDelayChange
                 }),
                 val
               );
@@ -380,6 +417,30 @@ var BoardView = function (_React$Component) {
             { style: { marginTop: '10px', fontWeight: 'bold' } },
             'Hint: ',
             this.state.hint
+          )
+        ),
+        React.createElement(
+          'div',
+          null,
+          React.createElement(
+            'div',
+            null,
+            'History: ',
+            this.state.undoStack.length
+          ),
+          React.createElement(
+            'div',
+            null,
+            React.createElement(
+              'button',
+              { onClick: this.saveToLocalStorage.bind(this) },
+              'Save (Y)'
+            ),
+            React.createElement(
+              'button',
+              { onClick: this.restoreFromLocalStorage.bind(this) },
+              'Restore (P)'
+            )
           )
         )
       );

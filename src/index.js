@@ -1,4 +1,5 @@
 const delays = [1, 50, 150, 250, 500, 1000];
+const stateKey = 'w2048-game-state';
 class BoardView extends React.Component {
   constructor(props) {
     super(props);
@@ -67,13 +68,13 @@ class BoardView extends React.Component {
       const prevState = this.saveState(this.state.board);
       const [newBoard, change] = this.state.board.move(direction, 1);
       if (change) {
-      this.setState(state => ({
-        board: newBoard,
-        undoStack: [...state.undoStack, prevState],
-        redoStack: [],
-        hint: '',
-        auto: false
-      }));
+        this.setState(state => ({
+          board: newBoard,
+          undoStack: [...state.undoStack, prevState],
+          redoStack: [],
+          hint: '',
+          auto: false
+        }));
       }
     } else if (event.key === 'u' || event.key === 'U') {
       this.handleUndo();
@@ -85,6 +86,10 @@ class BoardView extends React.Component {
       this.toggleAuto();
     } else if (event.key === 'N') {
       this.restartGame();
+    } else if (/Y/.test(event.key)) {
+      this.saveToLocalStorage();
+    } else if (/P/.test(event.key)) {
+      this.restoreFromLocalStorage();
     } else if (/\d/.test(event.key) && delays[event.key - 1]) {
       this.setState({ autoDelay: delays[event.key - 1] });
     }
@@ -109,6 +114,29 @@ class BoardView extends React.Component {
       redoStack: state.redoStack.slice(0, -1)
     }));
   }
+  saveToLocalStorage() {
+    try {
+      const myState = JSON.stringify(this.state);
+      idbKeyval.set(stateKey, myState);
+      // localStorage.setItem(stateKey, myState);
+    } catch (e) {
+      console.error('Failed to save state:', e);
+    }
+  }
+  restoreFromLocalStorage() {
+    try {
+      idbKeyval.get(stateKey).then(stateTxt => {
+        // const stateTxt = localStorage.getItem(stateKey)
+        const myState = JSON.parse(stateTxt);
+        if (typeof myState !== 'object') return;
+        myState.board = this.restoreState(myState.board);
+        this.setState(x => Object.assign({}, x, myState));
+      });
+    } catch (e) {
+      console.error('Failed to restore state:', e);
+    }
+  }
+
   handleTouchStart(event) {
     if (event.touches.length != 1) {
       return;
@@ -133,13 +161,13 @@ class BoardView extends React.Component {
       const prevState = this.saveState(this.state.board);
       const [newBoard, change] = this.state.board.move(direction, 1);
       if (change) {
-      this.setState(state => ({
-        board: newBoard,
-        undoStack: [...state.undoStack, prevState],
-        redoStack: [],
-        hint: '',
-        auto: false
-      }));
+        this.setState(state => ({
+          board: newBoard,
+          undoStack: [...state.undoStack, prevState],
+          redoStack: [],
+          hint: '',
+          auto: false
+        }));
       }
     }
   }
@@ -245,6 +273,13 @@ class BoardView extends React.Component {
             ))
           }</span>
           {this.state.hint && <div style={{ marginTop: '10px', fontWeight: 'bold' }}>Hint: {this.state.hint}</div>}
+        </div>
+        <div>
+          <div>History: {this.state.undoStack.length}</div>
+          <div>
+            <button onClick={this.saveToLocalStorage.bind(this)}>Save (Y)</button>
+            <button onClick={this.restoreFromLocalStorage.bind(this)}>Restore (P)</button>
+          </div>
         </div>
       </div>
     );

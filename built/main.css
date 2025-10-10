@@ -142,6 +142,18 @@ body {
   font-size: 35px;
 }
 
+.tile16384 {
+  color: #fff;
+  background-color: #ffdd05;
+  font-size: 30px;
+}
+
+.tile32768 {
+  color: #fff;
+  background-color: #ffdd05;
+  font-size: 30px;
+}
+
 .tile {
   position: absolute;
 }

@@ -2,6 +2,10 @@
   "name": "2048-react",
   "version": "0.1.0",
   "description": "A 2048 clone written with React and SASS",
+  "scripts": {
+    "build": "pnpm gulp build",
+    "dev": "pnpm gulp"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/IvanVergiliev/2048-react"
