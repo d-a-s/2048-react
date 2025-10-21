@@ -1,10 +1,10 @@
 'use strict';
 
-var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
-
 var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; }();
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
 
 function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
 
@@ -16,6 +16,18 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 
 var delays = [1, 50, 150, 250, 500, 1000];
 var stateKey = 'w2048-game-state';
+
+function formatBytes(bytes) {
+  if ((typeof bytes === 'undefined' ? 'undefined' : _typeof(bytes)) === 'object' && bytes.length > 0) bytes = bytes.length;
+  if (typeof bytes === 'string' && bytes.length > 0) bytes = bytes.length;
+  if (bytes < 1024) return bytes + 'b';
+  var kb = bytes / 1024;
+  if (kb < 1024) return kb.toFixed(2) + 'kb';
+  var mb = kb / 1024;
+  if (mb < 1024) return mb.toFixed(2) + 'mb';
+  var gb = mb / 1024;
+  return gb.toFixed(2) + 'gb';
+}
 
 var BoardView = function (_React$Component) {
   _inherits(BoardView, _React$Component);
@@ -70,24 +82,21 @@ var BoardView = function (_React$Component) {
   }, {
     key: 'saveState',
     value: function saveState(board) {
-      // Deep clone board by serializing and deserializing
-      return JSON.parse(JSON.stringify(board, function (key, value) {
-        // Remove functions from serialization
-        return typeof value === 'function' ? undefined : value;
-      }));
+      // Flatten the board's cell values into a 1D array
+      return board.cells.flat().map(function (cell) {
+        return cell.value;
+      });
     }
   }, {
     key: 'restoreState',
-    value: function restoreState(stateObj) {
-      // Restore a board from a plain object
+    value: function restoreState(stateArr) {
+      // Restore a board from a 1D array of values
       var board = new Board();
-      // Copy cells and tiles
-      for (var r = 0; r < Board.size; ++r) {
-        for (var c = 0; c < Board.size; ++c) {
-          board.cells[r][c].value = stateObj.cells[r][c].value;
-        }
+      for (var i = 0; i < Board.size * Board.size; ++i) {
+        var r = Math.floor(i / Board.size);
+        var c = i % Board.size;
+        board.cells[r][c].value = stateArr[i];
       }
-      board.won = stateObj.won;
       board.setPositions();
       return board;
     }
@@ -125,11 +134,11 @@ var BoardView = function (_React$Component) {
         this.toggleAuto();
       } else if (event.key === 'N') {
         this.restartGame();
-      } else if (/Y/.test(event.key)) {
-        this.saveToLocalStorage();
-      } else if (/P/.test(event.key)) {
+      } else if (/^(Y|C)$/.test(event.key)) {
+        this.saveToLocalStorage(event.key === 'C');
+      } else if (/^P$/.test(event.key)) {
         this.restoreFromLocalStorage();
-      } else if (/\d/.test(event.key) && delays[event.key - 1]) {
+      } else if (/^\d$/.test(event.key) && delays[event.key - 1]) {
         this.setState({ autoDelay: delays[event.key - 1] });
       }
     }
@@ -166,11 +175,34 @@ var BoardView = function (_React$Component) {
       });
     }
   }, {
+    key: 'setStatus',
+    value: function setStatus(txt, timeout) {
+      var _this4 = this;
+
+      this.setState(function (s) {
+        return Object.assign({}, s, { status: txt });
+      });
+      if (timeout && txt) setTimeout(function () {
+        _this4.setState(function (s) {
+          if (s.status !== txt) return s;
+          return Object.assign({}, s, { status: undefined });
+        });
+      }, timeout);
+    }
+  }, {
     key: 'saveToLocalStorage',
-    value: function saveToLocalStorage() {
+    value: function saveToLocalStorage(clip) {
+      var _this5 = this;
+
       try {
-        var myState = JSON.stringify(this.state);
-        idbKeyval.set(stateKey, myState);
+        var copy = Object.assign({}, this.state);
+        copy.board = this.saveState(copy.board);
+        var myState = JSON.stringify(copy);
+        this.setStatus('saving ' + formatBytes(myState) + '...');
+        idbKeyval.set(stateKey, myState).then(function (x) {
+          if (clip) navigator.clipboard.writeText(myState);
+          _this5.setStatus('saved ' + formatBytes(myState) + '!', 2000);
+        });
         // localStorage.setItem(stateKey, myState);
       } catch (e) {
         console.error('Failed to save state:', e);
@@ -179,17 +211,21 @@ var BoardView = function (_React$Component) {
   }, {
     key: 'restoreFromLocalStorage',
     value: function restoreFromLocalStorage() {
-      var _this4 = this;
+      var _this6 = this;
 
       try {
+        this.setStatus('restoring...');
         idbKeyval.get(stateKey).then(function (stateTxt) {
-          // const stateTxt = localStorage.getItem(stateKey)
           var myState = JSON.parse(stateTxt);
-          if ((typeof myState === 'undefined' ? 'undefined' : _typeof(myState)) !== 'object') return;
-          myState.board = _this4.restoreState(myState.board);
-          _this4.setState(function (x) {
+          if ((typeof myState === 'undefined' ? 'undefined' : _typeof(myState)) !== 'object') {
+            _this6.setStatus();
+            return;
+          };
+          myState.board = _this6.restoreState(myState.board);
+          _this6.setState(function (x) {
             return Object.assign({}, x, myState);
           });
+          _this6.setStatus('restored! ' + formatBytes(stateTxt), 2000);
         });
       } catch (e) {
         console.error('Failed to restore state:', e);
@@ -243,31 +279,31 @@ var BoardView = function (_React$Component) {
   }, {
     key: 'toggleAuto',
     value: function toggleAuto() {
-      var _this5 = this;
+      var _this7 = this;
 
       if (this.state.auto) {
         this.setState({ auto: false });
         if (this.autoTimeout) clearTimeout(this.autoTimeout);
       } else {
         this.setState({ auto: true }, function () {
-          return _this5.autoStep();
+          return _this7.autoStep();
         });
       }
     }
   }, {
     key: 'getHintDirection',
     value: function getHintDirection() {
-      var _this6 = this;
+      var _this8 = this;
 
       // Use SmartAI Web Worker for hint direction
       return new Promise(function (resolve) {
-        _this6.workerPending = resolve;
-        var boardValues = _this6.state.board.cells.map(function (row) {
+        _this8.workerPending = resolve;
+        var boardValues = _this8.state.board.cells.map(function (row) {
           return row.map(function (cell) {
             return cell.value;
           });
         });
-        _this6.smartAIWorker.postMessage({ board: boardValues, size: Board.size });
+        _this8.smartAIWorker.postMessage({ board: boardValues, size: Board.size });
       });
     }
   }, {
@@ -292,7 +328,7 @@ var BoardView = function (_React$Component) {
   }, {
     key: 'autoStep',
     value: async function autoStep() {
-      var _this7 = this;
+      var _this9 = this;
 
       if (!this.state.auto || this.state.board.hasLost()) {
         this.setState({ auto: false });
@@ -313,9 +349,9 @@ var BoardView = function (_React$Component) {
           hint: ''
         };
       }, function () {
-        _this7.autoTimeout = setTimeout(function () {
-          return _this7.state.auto && _this7.autoStep();
-        }, _this7.state.autoDelay);
+        _this9.autoTimeout = setTimeout(function () {
+          return _this9.state.auto && _this9.autoStep();
+        }, _this9.state.autoDelay);
       });
     }
   }, {
@@ -340,7 +376,7 @@ var BoardView = function (_React$Component) {
   }, {
     key: 'render',
     value: function render() {
-      var _this8 = this;
+      var _this10 = this;
 
       var cells = this.state.board.cells.map(function (row, rowIndex) {
         return React.createElement(
@@ -405,8 +441,8 @@ var BoardView = function (_React$Component) {
                   type: 'radio',
                   name: 'autoDelay',
                   value: val,
-                  checked: _this8.state.autoDelay === val,
-                  onChange: _this8.handleDelayChange
+                  checked: _this10.state.autoDelay === val,
+                  onChange: _this10.handleDelayChange
                 }),
                 val
               );
@@ -426,7 +462,8 @@ var BoardView = function (_React$Component) {
             'div',
             null,
             'History: ',
-            this.state.undoStack.length
+            this.state.undoStack.length,
+            this.state.status && ' (' + this.state.status + ')'
           ),
           React.createElement(
             'div',

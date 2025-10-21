@@ -1,5 +1,17 @@
 const delays = [1, 50, 150, 250, 500, 1000];
 const stateKey = 'w2048-game-state';
+
+function formatBytes(bytes) {
+  if (typeof bytes === 'object' && bytes.length > 0) bytes = bytes.length;
+  if (typeof bytes === 'string' && bytes.length > 0) bytes = bytes.length;
+  if (bytes < 1024) return bytes + 'b';
+  let kb = bytes / 1024;
+  if (kb < 1024) return kb.toFixed(2) + 'kb';
+  let mb = kb / 1024;
+  if (mb < 1024) return mb.toFixed(2) + 'mb';
+  let gb = mb / 1024;
+  return gb.toFixed(2) + 'gb';
+}
 class BoardView extends React.Component {
   constructor(props) {
     super(props);
@@ -42,25 +54,22 @@ class BoardView extends React.Component {
     });
   }
   saveState(board) {
-    // Deep clone board by serializing and deserializing
-    return JSON.parse(JSON.stringify(board, (key, value) => {
-      // Remove functions from serialization
-      return typeof value === 'function' ? undefined : value;
-    }));
+    // Flatten the board's cell values into a 1D array
+    return board.cells.flat().map(cell => cell.value);
   }
-  restoreState(stateObj) {
-    // Restore a board from a plain object
+
+  restoreState(stateArr) {
+    // Restore a board from a 1D array of values
     let board = new Board();
-    // Copy cells and tiles
-    for (let r = 0; r < Board.size; ++r) {
-      for (let c = 0; c < Board.size; ++c) {
-        board.cells[r][c].value = stateObj.cells[r][c].value;
-      }
+    for (let i = 0; i < Board.size * Board.size; ++i) {
+      let r = Math.floor(i / Board.size);
+      let c = i % Board.size;
+      board.cells[r][c].value = stateArr[i];
     }
-    board.won = stateObj.won;
     board.setPositions();
     return board;
   }
+
   handleKeyDown(event) {
     if (event.keyCode >= 37 && event.keyCode <= 40) {
       event.preventDefault();
@@ -86,11 +95,11 @@ class BoardView extends React.Component {
       this.toggleAuto();
     } else if (event.key === 'N') {
       this.restartGame();
-    } else if (/Y/.test(event.key)) {
-      this.saveToLocalStorage();
-    } else if (/P/.test(event.key)) {
+    } else if (/^(Y|C)$/.test(event.key)) {
+      this.saveToLocalStorage(event.key === 'C');
+    } else if (/^P$/.test(event.key)) {
       this.restoreFromLocalStorage();
-    } else if (/\d/.test(event.key) && delays[event.key - 1]) {
+    } else if (/^\d$/.test(event.key) && delays[event.key - 1]) {
       this.setState({ autoDelay: delays[event.key - 1] });
     }
   }
@@ -114,10 +123,25 @@ class BoardView extends React.Component {
       redoStack: state.redoStack.slice(0, -1)
     }));
   }
-  saveToLocalStorage() {
+  setStatus(txt, timeout) {
+    this.setState(s => Object.assign({}, s, { status: txt }));
+    if (timeout && txt) setTimeout(() => {
+      this.setState(s => {
+        if (s.status !== txt) return s;
+        return Object.assign({}, s, { status: undefined });
+      });
+    }, timeout);
+  }
+  saveToLocalStorage(clip) {
     try {
-      const myState = JSON.stringify(this.state);
-      idbKeyval.set(stateKey, myState);
+      const copy = Object.assign({}, this.state);
+      copy.board = this.saveState(copy.board);
+      const myState = JSON.stringify(copy);
+      this.setStatus(`saving ${formatBytes(myState)}...`);
+      idbKeyval.set(stateKey, myState).then(x => {
+        if (clip) navigator.clipboard.writeText(myState);
+        this.setStatus(`saved ${formatBytes(myState)}!`, 2000);
+      });
       // localStorage.setItem(stateKey, myState);
     } catch (e) {
       console.error('Failed to save state:', e);
@@ -125,12 +149,16 @@ class BoardView extends React.Component {
   }
   restoreFromLocalStorage() {
     try {
+      this.setStatus('restoring...');
       idbKeyval.get(stateKey).then(stateTxt => {
-        // const stateTxt = localStorage.getItem(stateKey)
         const myState = JSON.parse(stateTxt);
-        if (typeof myState !== 'object') return;
+        if (typeof myState !== 'object') {
+          this.setStatus();
+          return;
+        };
         myState.board = this.restoreState(myState.board);
         this.setState(x => Object.assign({}, x, myState));
+        this.setStatus(`restored! ${formatBytes(stateTxt)}`, 2000);
       });
     } catch (e) {
       console.error('Failed to restore state:', e);
@@ -275,7 +303,9 @@ class BoardView extends React.Component {
           {this.state.hint && <div style={{ marginTop: '10px', fontWeight: 'bold' }}>Hint: {this.state.hint}</div>}
         </div>
         <div>
-          <div>History: {this.state.undoStack.length}</div>
+          <div>History: {this.state.undoStack.length}
+            {this.state.status && ` (${this.state.status})`}
+          </div>
           <div>
             <button onClick={this.saveToLocalStorage.bind(this)}>Save (Y)</button>
             <button onClick={this.restoreFromLocalStorage.bind(this)}>Restore (P)</button>
